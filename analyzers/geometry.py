@@ -74,6 +74,45 @@ def analyze_mesh(mesh):
     else:
         average_curvature = max_curvature = min_curvature = 0.0
 
+    # Euler characteristic
+    V = len(np.asarray(mesh.vertices))
+    # Estimate E (number of unique edges) from triangle indices
+    edges_set = set()
+    for triangle in triangles:
+        i, j, k = triangle
+        edges_set.update({tuple(sorted((i, j))), tuple(sorted((j, k))), tuple(sorted((k, i)))})
+    E = len(edges_set)
+    F = len(np.asarray(mesh.triangles))
+    euler_characteristic = V - E + F
+
+    # Genus estimate
+    genus_estimate = (2 - euler_characteristic) // 2 if is_watertight else None
+
+    # Connected components
+    triangle_clusters, cluster_n_triangles, cluster_area = mesh.cluster_connected_triangles()
+    connected_components = len(cluster_n_triangles)
+
+    # Sharp edge count (approximate by angle between adjacent triangle normals)
+    triangle_normals = np.asarray(mesh.triangle_normals)
+    triangles = np.asarray(mesh.triangles)
+    sharp_edge_count = 0
+    angle_threshold = np.deg2rad(30.0)
+
+    edge_to_triangles = {}
+    for tidx, tri in enumerate(triangles):
+        edges = [(tri[0], tri[1]), (tri[1], tri[2]), (tri[2], tri[0])]
+        for i, j in edges:
+            key = tuple(sorted((i, j)))
+            edge_to_triangles.setdefault(key, []).append(tidx)
+
+    for tri_ids in edge_to_triangles.values():
+        if len(tri_ids) == 2:
+            n1 = triangle_normals[tri_ids[0]]
+            n2 = triangle_normals[tri_ids[1]]
+            angle = np.arccos(np.clip(np.dot(n1, n2), -1.0, 1.0))
+            if angle > angle_threshold:
+                sharp_edge_count += 1
+
     return {
         "vertices": len(np.asarray(mesh.vertices)),
         "triangles": len(np.asarray(mesh.triangles)),
@@ -91,4 +130,8 @@ def analyze_mesh(mesh):
         "average_curvature": average_curvature,
         "max_curvature": max_curvature,
         "min_curvature": min_curvature,
+        "euler_characteristic": euler_characteristic,
+        "genus_estimate": genus_estimate,
+        "connected_components": connected_components,
+        "sharp_edge_count": sharp_edge_count,
     }
