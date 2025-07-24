@@ -14,6 +14,43 @@ def analyze_mesh(mesh):
     hull, _ = mesh.compute_convex_hull()
     convex_hull_volume = hull.get_volume()
 
+    # Get non-manifold edge count BEFORE overriding triangle array
+    non_manifold_edges = mesh.get_non_manifold_edges()
+    non_manifold_edge_count = len(non_manifold_edges)
+
+    # Compute average edge length
+    triangles = np.asarray(mesh.triangles)
+    vertices = np.asarray(mesh.vertices)
+
+    edge_lengths = []
+    for t in triangles:
+        v0, v1, v2 = vertices[t[0]], vertices[t[1]], vertices[t[2]]
+        edge_lengths.append(np.linalg.norm(v0 - v1))
+        edge_lengths.append(np.linalg.norm(v1 - v2))
+        edge_lengths.append(np.linalg.norm(v2 - v0))
+
+    average_edge_length = float(np.mean(edge_lengths))
+
+    # Compute triangle aspect ratios
+    triangles = np.asarray(mesh.triangles)
+    vertices = np.asarray(mesh.vertices)
+
+    def triangle_aspect_ratio(v0, v1, v2):
+        a = np.linalg.norm(v0 - v1)
+        b = np.linalg.norm(v1 - v2)
+        c = np.linalg.norm(v2 - v0)
+        s = (a + b + c) / 2
+        area = max(np.sqrt(max(s * (s - a) * (s - b) * (s - c), 0)), 1e-12)
+        inradius = 2 * area / (a + b + c)
+        circumradius = (a * b * c) / (4 * area)
+        return circumradius / inradius
+
+    aspect_ratios = [
+        triangle_aspect_ratio(vertices[t[0]], vertices[t[1]], vertices[t[2]])
+        for t in triangles
+    ]
+    average_aspect_ratio = float(np.mean(aspect_ratios))
+
     return {
         "vertices": len(np.asarray(mesh.vertices)),
         "triangles": len(np.asarray(mesh.triangles)),
@@ -24,5 +61,8 @@ def analyze_mesh(mesh):
         "bounding_box": {
             "min_bound": bbox.get_min_bound().tolist(),
             "max_bound": bbox.get_max_bound().tolist()
-        }
+        },
+        "average_edge_length": average_edge_length,
+        "average_triangle_aspect_ratio": average_aspect_ratio,
+        "non_manifold_edge_count": non_manifold_edge_count,
     }
