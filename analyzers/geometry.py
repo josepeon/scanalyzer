@@ -51,6 +51,29 @@ def analyze_mesh(mesh):
     ]
     average_aspect_ratio = float(np.mean(aspect_ratios))
 
+    # Estimate curvature using vertex neighbor distances (approximation)
+    curvatures = []
+    mesh.compute_adjacency_list()
+
+    if hasattr(mesh, 'adjacency_list') and mesh.adjacency_list is not None:
+        adj = mesh.adjacency_list
+        vertices = np.asarray(mesh.vertices)
+
+        for vidx, neighbors in enumerate(adj):
+            v = vertices[vidx]
+            neighbor_pts = np.array([vertices[n] for n in neighbors])
+            if len(neighbor_pts) == 0:
+                continue
+            dists = np.linalg.norm(neighbor_pts - v, axis=1)
+            curvatures.append(np.mean(dists))
+
+        curvatures = np.array(curvatures)
+        average_curvature = float(np.mean(curvatures)) if len(curvatures) > 0 else 0.0
+        max_curvature = float(np.max(curvatures)) if len(curvatures) > 0 else 0.0
+        min_curvature = float(np.min(curvatures)) if len(curvatures) > 0 else 0.0
+    else:
+        average_curvature = max_curvature = min_curvature = 0.0
+
     return {
         "vertices": len(np.asarray(mesh.vertices)),
         "triangles": len(np.asarray(mesh.triangles)),
@@ -65,4 +88,7 @@ def analyze_mesh(mesh):
         "average_edge_length": average_edge_length,
         "average_triangle_aspect_ratio": average_aspect_ratio,
         "non_manifold_edge_count": non_manifold_edge_count,
+        "average_curvature": average_curvature,
+        "max_curvature": max_curvature,
+        "min_curvature": min_curvature,
     }
