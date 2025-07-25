@@ -8,3 +8,36 @@ test_files/*.obj
 test_files/*.stl
 
 .env
+# Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Compressed files
+*.tar.gz
+
+# Log and backup files
+*.log
+*.tmp
+*.bak
+
+# System files
+.DS_Store
+
+# IDE and editor folders
+.vscode/
+
+# Environments
+venv/
+.env/
+
+# Model/data artifacts
+*.pkl
+data/*.csv
+!data/simplification_logs.csv
+
+# Keep example meshes, ignore test meshes
+test_files/*.ply
+test_files/*.obj
+test_files/*.stl
