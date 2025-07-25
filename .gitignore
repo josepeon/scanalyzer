@@ -1,8 +1,10 @@
 __pycache__/
 *.pyc
 *.tar.gz
-*.ply
-*.obj
-*.stl
-test_files/
+
+# Keep example meshes, but ignore test meshes
+test_files/*.ply
+test_files/*.obj
+test_files/*.stl
+
 .env
