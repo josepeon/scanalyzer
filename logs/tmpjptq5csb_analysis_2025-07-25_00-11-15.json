@@ -1,0 +1,35 @@
+{
+    "mesh_name": "tmpjptq5csb",
+    "timestamp": "2025-07-25_00-11-15",
+    "simplification_level": null,
+    "analysis": {
+        "vertices": 18559,
+        "triangles": 34724,
+        "surface_area": 0.05711642626075634,
+        "volume": null,
+        "convex_hull_volume": 0.001249508206242338,
+        "watertight": false,
+        "bounding_box": {
+            "min_bound": [
+                -0.09467919999999999,
+                0.0329874,
+                -0.0618736
+            ],
+            "max_bound": [
+                0.0610091,
+                0.187321,
+                0.0587955
+            ]
+        },
+        "average_edge_length": 0.002118910838517746,
+        "average_triangle_aspect_ratio": 127.7632893730729,
+        "non_manifold_edge_count": 0,
+        "average_curvature": 0.002085374183127797,
+        "max_curvature": 0.004311638617337665,
+        "min_curvature": 0.000988043259623237,
+        "euler_characteristic": 1110,
+        "genus_estimate": null,
+        "connected_components": 1,
+        "sharp_edge_count": 1331
+    }
+}

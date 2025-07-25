@@ -1,6 +1,8 @@
 import streamlit as st
 import tempfile
 import os
+from pathlib import Path
+from io import BytesIO
 from utils.loader import load_3d_model
 from analyzers.geometry import analyze_mesh
 import numpy as np
@@ -8,6 +10,64 @@ import plotly.graph_objects as go
 import trimesh
 import open3d as o3d
 import csv
+import joblib
+
+# Initialize session state for mesh, tmp_path, and analysis
+if 'mesh' not in st.session_state:
+    st.session_state.mesh = None
+if 'tmp_path' not in st.session_state:
+    st.session_state.tmp_path = None
+if 'analysis' not in st.session_state:
+    st.session_state.analysis = None
+
+# --- Mesh Viewer Rendering Function ---
+def render_mesh_viewer():
+    mesh = st.session_state.mesh
+    MAX_DISPLAY_TRIANGLES = 100000
+    vertices_np = np.asarray(mesh.vertices)
+    triangles_np = np.asarray(mesh.triangles)
+
+    if len(triangles_np) > MAX_DISPLAY_TRIANGLES:
+        simplified_mesh = mesh.simplify_quadric_decimation(MAX_DISPLAY_TRIANGLES)
+        vertices_np = np.asarray(simplified_mesh.vertices)
+        triangles_np = np.asarray(simplified_mesh.triangles)
+
+    if len(triangles_np) > 100000:
+        simplified_mesh = mesh.simplify_quadric_decimation(50000)
+        vertices_np = np.asarray(simplified_mesh.vertices)
+        triangles_np = np.asarray(simplified_mesh.triangles)
+
+    trimesh_obj = trimesh.Trimesh(vertices=vertices_np, faces=triangles_np)
+
+    extension = st.session_state.tmp_path.split(".")[-1] if st.session_state.tmp_path else "ply"
+    glb_path = st.session_state.tmp_path.replace("." + extension, ".glb")
+    try:
+        trimesh_obj.export(glb_path)
+        if not os.path.exists(glb_path):
+            st.error("Failed to export mesh to GLB.")
+            return
+        fig = go.Figure(data=[go.Mesh3d(
+            x=vertices_np[:, 0],
+            y=vertices_np[:, 1],
+            z=vertices_np[:, 2],
+            i=triangles_np[:, 0],
+            j=triangles_np[:, 1],
+            k=triangles_np[:, 2],
+            color='gray',
+            opacity=1.0,
+            lighting=dict(ambient=0.18, diffuse=1, fresnel=0.1, specular=0.3, roughness=0.7),
+            lightposition=dict(x=100, y=200, z=0)
+        )])
+        fig.update_layout(
+            scene=dict(aspectmode='data'),
+            margin=dict(r=0, l=0, b=0, t=0),
+            autosize=True,
+            width=None,
+            height=600
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    except Exception as e:
+        st.error(f"An error occurred while rendering the 3D preview: {e}")
 
 st.set_page_config(page_title="Scanalyzer", layout="wide")
 st.markdown("""
@@ -95,6 +155,18 @@ with col_left:
         col1, col2 = st.columns([3,1])
         with col1:
             uploaded_file = st.file_uploader("Upload a 3D file (.ply, .obj, .stl)", type=["ply", "obj", "stl"])
+            # Add example bunny.ply button inside the expander
+            if Path("examples/bunny.ply").is_file():
+                if st.button("Try with Example: bunny.ply"):
+                    with open("examples/bunny.ply", "rb") as f:
+                        data = f.read()
+                        uploaded_file = BytesIO(data)
+                        uploaded_file.name = "bunny.ply"
+                        uploaded_file.seek(0)
+                    # Simulate saving the file temporarily as in a real upload
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".ply") as tmp:
+                        tmp.write(data)
+                        st.session_state.tmp_path = tmp.name
         with col2:
             if uploaded_file is not None:
                 st.success("File uploaded. Processing...")
@@ -104,31 +176,49 @@ with col_left:
 if 'uploaded_file' not in locals():
     uploaded_file = None
 
-if uploaded_file is not None:
-    with tempfile.NamedTemporaryFile(delete=False, suffix="." + uploaded_file.name.split(".")[-1]) as tmp:
-        tmp.write(uploaded_file.read())
-        tmp_path = tmp.name
+# Accept either uploaded file or example button
+if uploaded_file is not None or ('tmp_path' in locals() and tmp_path is not None):
+    if uploaded_file is not None and (not hasattr(uploaded_file, "read") or uploaded_file.name == "bunny.ply"):
+        # This is the bunny.ply dummy file, use the examples path
+        if not ('tmp_path' in locals() and tmp_path is not None):
+            tmp_path = "examples/bunny.ply"
+    elif uploaded_file is not None:
+        with tempfile.NamedTemporaryFile(delete=False, suffix="." + uploaded_file.name.split(".")[-1]) as tmp:
+            tmp.write(uploaded_file.read())
+            tmp_path = tmp.name
 
-    mesh = load_3d_model(tmp_path)
-    if mesh is None:
-        with col_left:
-            st.error("Failed to load the 3D model.")
+    print("Trying to load mesh from:", tmp_path)
+    print(f"Mesh loaded from: {tmp_path}")
+    print(f"File exists? {os.path.exists(tmp_path)}")
+    print(f"File size: {os.path.getsize(tmp_path)} bytes")
+    try:
+        st.session_state.mesh = load_3d_model(tmp_path)
+        st.session_state.tmp_path = tmp_path
+    except Exception as e:
+        st.warning(f"Mesh failed to load: {e}")
+        st.session_state.mesh = None
+    print("Mesh loaded?", st.session_state.mesh is not None)
+    if st.session_state.mesh:
+        print("Vertices:", len(st.session_state.mesh.vertices))
+        print("Triangles:", len(st.session_state.mesh.triangles))
+    if st.session_state.mesh is None or len(st.session_state.mesh.vertices) == 0 or len(st.session_state.mesh.triangles) == 0:
+        st.warning("Model could not be loaded or contains no geometry. Please try another mesh.")
     else:
         with st.spinner("Analyzing mesh..."):
             try:
-                analysis = analyze_mesh(mesh)
+                st.session_state.analysis = analyze_mesh(st.session_state.mesh)
                 from analyzers.geometry import log_analysis_results
                 from os.path import basename
-                mesh_name = basename(tmp_path).split('.')[0]
-                log_analysis_results(analysis, mesh_name)
+                mesh_name = basename(st.session_state.tmp_path).split('.')[0]
+                log_analysis_results(st.session_state.analysis, mesh_name)
             except RuntimeError as e:
                 st.warning("Analysis warning: " + str(e))
-                analysis = {
-                    "vertices": len(mesh.vertices),
-                    "triangles": len(mesh.triangles),
-                    "surface_area": mesh.get_surface_area() if mesh.get_surface_area() is not None else 0.0,
-                    "volume": mesh.get_volume() if mesh.is_watertight() else 0.0,
-                    "watertight": mesh.is_watertight(),
+                st.session_state.analysis = {
+                    "vertices": len(st.session_state.mesh.vertices),
+                    "triangles": len(st.session_state.mesh.triangles),
+                    "surface_area": st.session_state.mesh.get_surface_area() if st.session_state.mesh.get_surface_area() is not None else 0.0,
+                    "volume": st.session_state.mesh.get_volume() if st.session_state.mesh.is_watertight() else 0.0,
+                    "watertight": st.session_state.mesh.is_watertight(),
                     "average_edge_length": 0.0,
                     "average_triangle_aspect_ratio": 0.0,
                     "connected_components": 0,
@@ -138,16 +228,34 @@ if uploaded_file is not None:
                 }
 
         try:
-            bounds = mesh.bounds
+            bounds = st.session_state.mesh.bounds
             min_dim = np.min(bounds[1] - bounds[0])
-            analysis["approx_thickness"] = float(min_dim)
+            st.session_state.analysis["approx_thickness"] = float(min_dim)
         except:
-            analysis["approx_thickness"] = 0.0
+            st.session_state.analysis["approx_thickness"] = 0.0
+
+        # ML-based suggestion for simplification level
+        suggested_level = None
+        model_path = "model/simplification_model.pkl"
+
+        if os.path.exists(model_path):
+            try:
+                model = joblib.load(model_path)
+                feature_order = [
+                    "average_edge_length", "min_curvature", "average_triangle_aspect_ratio",
+                    "average_curvature", "surface_area", "volume", "connected_components",
+                    "triangles", "max_curvature", "vertices", "approx_thickness", "watertight"
+                ]
+                features = [[st.session_state.analysis.get(k, 0.0) for k in feature_order]]
+                suggested_level = model.predict(features)[0]
+            except Exception as e:
+                st.warning(f"Model prediction failed: {e}")
 
         with col_left:
             st.markdown("---")
 
             with st.expander("Mesh Analysis Summary"):
+                analysis = st.session_state.analysis
                 cols = st.columns(2)
                 with cols[0]:
                     st.markdown("**Mesh Structure**")
@@ -165,56 +273,15 @@ if uploaded_file is not None:
                     st.markdown(f"- **Curvature (min/avg/max)** <span title='Statistical description of how curved the surface is'>❓</span>: {analysis.get('min_curvature', 0.0):.3f} / {analysis.get('average_curvature', 0.0):.3f} / {analysis.get('max_curvature', 0.0):.3f}", unsafe_allow_html=True)
 
         with col_right:
-            vertices = np.asarray(mesh.vertices)
-            triangles = np.asarray(mesh.triangles)
-
-            if len(vertices) == 0 or len(triangles) == 0:
-                st.warning("No mesh data to display.")
-            else:
-                trimesh_obj = repaired_trimesh_obj if 'repaired_trimesh_obj' in globals() else trimesh.Trimesh(vertices=vertices, faces=triangles)
-                glb_path = tmp_path.replace("." + uploaded_file.name.split(".")[-1], ".glb")
-                try:
-                    trimesh_obj.export(glb_path)
-                    if not os.path.exists(glb_path):
-                        st.error("Failed to export mesh to GLB.")
-                    else:
-                        def triangle_aspect_ratios(verts, faces):
-                            A = np.linalg.norm(verts[faces[:, 0]] - verts[faces[:, 1]], axis=1)
-                            B = np.linalg.norm(verts[faces[:, 1]] - verts[faces[:, 2]], axis=1)
-                            C = np.linalg.norm(verts[faces[:, 2]] - verts[faces[:, 0]], axis=1)
-                            s = (A + B + C) / 2
-                            area = np.sqrt(np.clip(s * (s - A) * (s - B) * (s - C), 0, None))
-                            aspect_ratio = (A * B * C) / (8 * area * s)
-                            return np.nan_to_num(aspect_ratio, nan=0.0, posinf=0.0, neginf=0.0)
-
-                        fig = go.Figure(data=[go.Mesh3d(
-                            x=vertices[:,0],
-                            y=vertices[:,1],
-                            z=vertices[:,2],
-                            i=triangles[:,0],
-                            j=triangles[:,1],
-                            k=triangles[:,2],
-                            color='gray',
-                            opacity=1.0,
-                            lighting=dict(ambient=0.18, diffuse=1, fresnel=0.1, specular=0.3, roughness=0.7),
-                            lightposition=dict(x=100, y=200, z=0)
-                        )])
-                        fig.update_layout(
-                            scene=dict(aspectmode='data'),
-                            margin=dict(r=0, l=0, b=0, t=0),
-                            autosize=True,
-                            width=None,
-                            height=600
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-                except Exception as e:
-                    st.error(f"An error occurred while rendering the 3D preview: {e}")
+            if st.session_state.mesh:
+                render_mesh_viewer()
 
 
         with col_left:
             st.markdown("---")
 
             with st.expander("📊 Mesh Insights"):
+                analysis = st.session_state.analysis
                 tabs = st.tabs(["Curvature", "Geometry", "Analysis Table"])
                 with tabs[0]:
                     fig_curvature = go.Figure(data=[
@@ -255,17 +322,34 @@ if uploaded_file is not None:
             # Mesh simplification controls
             simpl_col1, simpl_col2 = st.columns([3,1])
             with simpl_col1:
-                level = st.selectbox(
-                    "Select Mesh Simplification Level",
-                    ["Mild", "Medium", "Aggressive"],
-                    key="simplify_level_unique",
-                    index=0,
-                    disabled=False
-                )
+                # Updated ML suggestion logic for simplification level
+                if suggested_level:
+                    st.info(f"Suggested simplification level: **{suggested_level}** (based on mesh features)")
+                    use_suggestion = st.checkbox("Use ML suggestion", value=False)
+                else:
+                    use_suggestion = False
+
+                if use_suggestion and suggested_level:
+                    level = suggested_level
+                else:
+                    level = st.selectbox(
+                        "Select Mesh Simplification Level",
+                        ["Mild", "Medium", "Aggressive"],
+                        key="simplify_level_unique",
+                        index=0,
+                        disabled=False
+                    )
             with simpl_col2:
                 pass
+
+
             # Move the button after the selectbox for visual hierarchy
             if st.button("Run Mesh Simplification", key="simplify_button_unique", disabled=False):
+                # Use session state for mesh, analysis, tmp_path
+                mesh = st.session_state.mesh
+                analysis = st.session_state.analysis
+                tmp_path = st.session_state.tmp_path
+
                 if level == "Mild":
                     factor = 0.75
                 elif level == "Medium":
@@ -321,6 +405,13 @@ if uploaded_file is not None:
                 except:
                     analysis["approx_thickness"] = 0.0
 
+                # Save back to session state for persistence
+                st.session_state.mesh = mesh
+                st.session_state.analysis = analysis
+
+                # --- Render mesh viewer with updated mesh ---
+                render_mesh_viewer()
+
                 # Log mesh simplification results to CSV
                 csv_path = "data/simplification_logs.csv"
                 os.makedirs(os.path.dirname(csv_path), exist_ok=True)
@@ -357,16 +448,30 @@ if uploaded_file is not None:
             st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
             st.download_button(
                 label="Download Report as JSON",
-                data=__import__('json').dumps(analysis, indent=2),
+                data=__import__('json').dumps(st.session_state.analysis, indent=2),
                 file_name="scanalyzer_report.json",
                 mime="application/json"
             )
             st.markdown("</div>", unsafe_allow_html=True)
 
-    # Cleanup
-    print(f"Temp path: {tmp_path}")
-    print(f"GLB path: {glb_path}")
-    print(f"GLB exists? {os.path.exists(glb_path)}")
-    import shutil
-    shutil.copy(glb_path, os.path.expanduser("~/Desktop/debug_model.glb"))
-    os.remove(tmp_path)
+        st.markdown("---")
+        st.markdown(
+            "<div style='text-align: center; font-size: 0.85rem; color: gray;'>"
+            "Built by Jose Peon · © 2025<br>"
+            "<a href='https://github.com/josepeon' target='_blank' style='color: gray; text-decoration: underline;'>github.com/josepeon</a>"
+            "</div>",
+            unsafe_allow_html=True
+        )
+
+        # Cleanup
+        print(f"Temp path: {st.session_state.tmp_path}")
+        if 'glb_path' in locals() and os.path.exists(glb_path):
+            print(f"GLB path: {glb_path}")
+            print(f"GLB exists? {os.path.exists(glb_path)}")
+            import shutil
+            shutil.copy(glb_path, os.path.expanduser("~/Desktop/debug_model.glb"))
+        else:
+            print("No GLB file was created; skipping debug export.")
+
+        if st.session_state.tmp_path and os.path.exists(st.session_state.tmp_path) and "examples" not in st.session_state.tmp_path:
+            os.remove(st.session_state.tmp_path)

@@ -1,0 +1,35 @@
+{
+    "mesh_name": "tmp8ln_9heh",
+    "timestamp": "2025-07-25_00-11-09",
+    "simplification_level": null,
+    "analysis": {
+        "vertices": 27257,
+        "triangles": 52087,
+        "surface_area": 0.05713044409710579,
+        "volume": null,
+        "convex_hull_volume": 0.0012497610992804925,
+        "watertight": false,
+        "bounding_box": {
+            "min_bound": [
+                -0.0946899,
+                0.0329874,
+                -0.0618736
+            ],
+            "max_bound": [
+                0.0610091,
+                0.187321,
+                0.0587997
+            ]
+        },
+        "average_edge_length": 0.0017243007299277827,
+        "average_triangle_aspect_ratio": 65.08116484233952,
+        "non_manifold_edge_count": 0,
+        "average_curvature": 0.001701405561689322,
+        "max_curvature": 0.003736984226551232,
+        "min_curvature": 0.0008621345719904159,
+        "euler_characteristic": 1110,
+        "genus_estimate": null,
+        "connected_components": 1,
+        "sharp_edge_count": 1405
+    }
+}

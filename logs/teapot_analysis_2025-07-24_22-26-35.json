@@ -1,0 +1,35 @@
+{
+    "mesh_name": "teapot",
+    "timestamp": "2025-07-24_22-26-35",
+    "simplification_level": null,
+    "analysis": {
+        "vertices": 416,
+        "triangles": 352,
+        "surface_area": 930.375435923333,
+        "volume": null,
+        "convex_hull_volume": 95215.61697080988,
+        "watertight": false,
+        "bounding_box": {
+            "min_bound": [
+                -47.92301559448242,
+                0.0,
+                -12.869650840759277
+            ],
+            "max_bound": [
+                46.79138946533203,
+                79.00656127929688,
+                12.869650840759277
+            ]
+        },
+        "average_edge_length": 3.622080301629,
+        "average_triangle_aspect_ratio": 7.091405291724739,
+        "non_manifold_edge_count": 0,
+        "average_curvature": 2.586966768135912,
+        "max_curvature": 7.899183101385565,
+        "min_curvature": 1.0135786092739936,
+        "euler_characteristic": 32,
+        "genus_estimate": null,
+        "connected_components": 36,
+        "sharp_edge_count": 0
+    }
+}
