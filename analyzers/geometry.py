@@ -1,6 +1,9 @@
 # analyzers/geometry.py
 import numpy as np
 import open3d as o3d
+import json
+import os
+import datetime
 
 def analyze_mesh(mesh):
     mesh.compute_vertex_normals()
@@ -32,8 +35,6 @@ def analyze_mesh(mesh):
     average_edge_length = float(np.mean(edge_lengths))
 
     # Compute triangle aspect ratios
-    triangles = np.asarray(mesh.triangles)
-    vertices = np.asarray(mesh.vertices)
 
     def triangle_aspect_ratio(v0, v1, v2):
         a = np.linalg.norm(v0 - v1)
@@ -57,7 +58,6 @@ def analyze_mesh(mesh):
 
     if hasattr(mesh, 'adjacency_list') and mesh.adjacency_list is not None:
         adj = mesh.adjacency_list
-        vertices = np.asarray(mesh.vertices)
 
         for vidx, neighbors in enumerate(adj):
             v = vertices[vidx]
@@ -94,7 +94,6 @@ def analyze_mesh(mesh):
 
     # Sharp edge count (approximate by angle between adjacent triangle normals)
     triangle_normals = np.asarray(mesh.triangle_normals)
-    triangles = np.asarray(mesh.triangles)
     sharp_edge_count = 0
     angle_threshold = np.deg2rad(30.0)
 
@@ -135,3 +134,18 @@ def analyze_mesh(mesh):
         "connected_components": connected_components,
         "sharp_edge_count": sharp_edge_count,
     }
+
+def log_analysis_results(analysis, mesh_name="unnamed_mesh", simplification_level=None, log_dir="logs"):
+    os.makedirs(log_dir, exist_ok=True)
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    filename = f"{mesh_name}_analysis_{timestamp}.json"
+
+    log_data = {
+        "mesh_name": mesh_name,
+        "timestamp": timestamp,
+        "simplification_level": simplification_level,
+        "analysis": analysis,
+    }
+
+    with open(os.path.join(log_dir, filename), "w") as f:
+        json.dump(log_data, f, indent=4)
