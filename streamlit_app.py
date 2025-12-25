@@ -187,20 +187,12 @@ if uploaded_file is not None or ('tmp_path' in locals() and tmp_path is not None
             tmp.write(uploaded_file.read())
             tmp_path = tmp.name
 
-    print("Trying to load mesh from:", tmp_path)
-    print(f"Mesh loaded from: {tmp_path}")
-    print(f"File exists? {os.path.exists(tmp_path)}")
-    print(f"File size: {os.path.getsize(tmp_path)} bytes")
     try:
         st.session_state.mesh = load_3d_model(tmp_path)
         st.session_state.tmp_path = tmp_path
     except Exception as e:
         st.warning(f"Mesh failed to load: {e}")
         st.session_state.mesh = None
-    print("Mesh loaded?", st.session_state.mesh is not None)
-    if st.session_state.mesh:
-        print("Vertices:", len(st.session_state.mesh.vertices))
-        print("Triangles:", len(st.session_state.mesh.triangles))
     if st.session_state.mesh is None or len(st.session_state.mesh.vertices) == 0 or len(st.session_state.mesh.triangles) == 0:
         st.warning("Model could not be loaded or contains no geometry. Please try another mesh.")
     else:
@@ -224,12 +216,15 @@ if uploaded_file is not None or ('tmp_path' in locals() and tmp_path is not None
                     "connected_components": 0,
                     "min_curvature": 0.0,
                     "average_curvature": 0.0,
-                    "max_curvature": 0.0
+                    "max_curvature": 0.0,
+                    "sharp_edge_count": 0
                 }
 
         try:
-            bounds = st.session_state.mesh.bounds
-            min_dim = np.min(bounds[1] - bounds[0])
+            bbox = st.session_state.mesh.get_axis_aligned_bounding_box()
+            min_bound = np.asarray(bbox.get_min_bound())
+            max_bound = np.asarray(bbox.get_max_bound())
+            min_dim = np.min(max_bound - min_bound)
             st.session_state.analysis["approx_thickness"] = float(min_dim)
         except:
             st.session_state.analysis["approx_thickness"] = 0.0
@@ -241,13 +236,25 @@ if uploaded_file is not None or ('tmp_path' in locals() and tmp_path is not None
         if os.path.exists(model_path):
             try:
                 model = joblib.load(model_path)
+                # Feature order must match the order used during training (from CSV columns)
                 feature_order = [
-                    "average_edge_length", "min_curvature", "average_triangle_aspect_ratio",
-                    "average_curvature", "surface_area", "volume", "connected_components",
-                    "triangles", "max_curvature", "vertices", "approx_thickness", "watertight"
+                    "vertices", "triangles", "surface_area", "volume", "watertight",
+                    "average_edge_length", "average_triangle_aspect_ratio", "min_curvature",
+                    "average_curvature", "max_curvature", "connected_components", "approx_thickness"
                 ]
-                features = [[st.session_state.analysis.get(k, 0.0) for k in feature_order]]
-                suggested_level = model.predict(features)[0]
+                # Handle None values and convert boolean to int
+                def safe_get(key):
+                    val = st.session_state.analysis.get(key, 0.0)
+                    if val is None:
+                        return 0.0
+                    if isinstance(val, bool):
+                        return int(val)
+                    return val
+                features = [[safe_get(k) for k in feature_order]]
+                predicted_class = model.predict(features)[0]
+                # Map numeric prediction to label (0=Aggressive, 1=Mild, 2=Moderate)
+                label_map = {0: "Aggressive", 1: "Mild", 2: "Moderate"}
+                suggested_level = label_map.get(predicted_class, "Mild")
             except Exception as e:
                 st.warning(f"Model prediction failed: {e}")
 
@@ -299,7 +306,7 @@ if uploaded_file is not None or ('tmp_path' in locals() and tmp_path is not None
                         go.Bar(name="Geometry", x=["Vertices", "Triangles", "Sharp Edges", "Approx. Thickness"], y=[
                             analysis["vertices"],
                             analysis["triangles"],
-                            analysis["sharp_edge_count"],
+                            analysis.get("sharp_edge_count", 0),
                             analysis.get("approx_thickness", 0.0)
                         ])
                     ])
@@ -396,11 +403,14 @@ if uploaded_file is not None or ('tmp_path' in locals() and tmp_path is not None
                         "connected_components": 0,
                         "min_curvature": 0.0,
                         "average_curvature": 0.0,
-                        "max_curvature": 0.0
+                        "max_curvature": 0.0,
+                        "sharp_edge_count": 0
                     }
                 try:
-                    bounds = mesh.bounds
-                    min_dim = np.min(bounds[1] - bounds[0])
+                    bbox = mesh.get_axis_aligned_bounding_box()
+                    min_bound = np.asarray(bbox.get_min_bound())
+                    max_bound = np.asarray(bbox.get_max_bound())
+                    min_dim = np.min(max_bound - min_bound)
                     analysis["approx_thickness"] = float(min_dim)
                 except:
                     analysis["approx_thickness"] = 0.0
@@ -463,15 +473,6 @@ if uploaded_file is not None or ('tmp_path' in locals() and tmp_path is not None
             unsafe_allow_html=True
         )
 
-        # Cleanup
-        print(f"Temp path: {st.session_state.tmp_path}")
-        if 'glb_path' in locals() and os.path.exists(glb_path):
-            print(f"GLB path: {glb_path}")
-            print(f"GLB exists? {os.path.exists(glb_path)}")
-            import shutil
-            shutil.copy(glb_path, os.path.expanduser("~/Desktop/debug_model.glb"))
-        else:
-            print("No GLB file was created; skipping debug export.")
-
+        # Cleanup temporary files
         if st.session_state.tmp_path and os.path.exists(st.session_state.tmp_path) and "examples" not in st.session_state.tmp_path:
             os.remove(st.session_state.tmp_path)
