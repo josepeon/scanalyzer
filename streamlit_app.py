@@ -3,8 +3,7 @@ import tempfile
 import os
 from pathlib import Path
 from io import BytesIO
-from utils.loader import load_3d_model
-from analyzers.geometry import analyze_mesh
+from scanalyzer import load_3d_model, analyze_mesh, log_analysis_results
 import numpy as np
 import plotly.graph_objects as go
 import trimesh
@@ -199,7 +198,6 @@ if uploaded_file is not None or ('tmp_path' in locals() and tmp_path is not None
         with st.spinner("Analyzing mesh..."):
             try:
                 st.session_state.analysis = analyze_mesh(st.session_state.mesh)
-                from analyzers.geometry import log_analysis_results
                 from os.path import basename
                 mesh_name = basename(st.session_state.tmp_path).split('.')[0]
                 log_analysis_results(st.session_state.analysis, mesh_name)
@@ -386,7 +384,6 @@ if uploaded_file is not None or ('tmp_path' in locals() and tmp_path is not None
                 # Re-run analysis
                 try:
                     analysis = analyze_mesh(mesh)
-                    from analyzers.geometry import log_analysis_results
                     from os.path import basename
                     mesh_name = basename(tmp_path).split('.')[0]
                     log_analysis_results(analysis, mesh_name)

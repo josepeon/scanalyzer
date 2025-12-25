@@ -1,11 +1,22 @@
-# analyzers/geometry.py
+"""Mesh geometry analysis functions."""
+
 import numpy as np
 import open3d as o3d
 import json
 import os
 import datetime
 
+
 def analyze_mesh(mesh):
+    """
+    Analyze a 3D mesh and compute geometric properties.
+    
+    Args:
+        mesh: Open3D TriangleMesh object.
+        
+    Returns:
+        Dictionary containing mesh analysis metrics.
+    """
     mesh.compute_vertex_normals()
     mesh.compute_triangle_normals()
     bbox = mesh.get_axis_aligned_bounding_box()
@@ -35,7 +46,6 @@ def analyze_mesh(mesh):
     average_edge_length = float(np.mean(edge_lengths))
 
     # Compute triangle aspect ratios
-
     def triangle_aspect_ratio(v0, v1, v2):
         a = np.linalg.norm(v0 - v1)
         b = np.linalg.norm(v1 - v2)
@@ -135,7 +145,17 @@ def analyze_mesh(mesh):
         "sharp_edge_count": sharp_edge_count,
     }
 
+
 def log_analysis_results(analysis, mesh_name="unnamed_mesh", simplification_level=None, log_dir="logs"):
+    """
+    Save analysis results to a JSON log file.
+    
+    Args:
+        analysis: Dictionary of analysis results.
+        mesh_name: Name identifier for the mesh.
+        simplification_level: Optional simplification level applied.
+        log_dir: Directory to save log files.
+    """
     os.makedirs(log_dir, exist_ok=True)
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     filename = f"{mesh_name}_analysis_{timestamp}.json"

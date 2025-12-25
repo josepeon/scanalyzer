@@ -1,7 +1,6 @@
 # app.py
 import sys
-from utils.loader import load_3d_model
-from analyzers.geometry import analyze_mesh
+from scanalyzer import load_3d_model, analyze_mesh
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

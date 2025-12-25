@@ -1,6 +1,6 @@
 # Scanalyzer
 
-**Scanalyzer** is a Streamlit-based web tool for 3D mesh inspection, simplification, and analysis. It enables users to upload or test with example meshes and gain insights into geometry features, curvature, thickness, and more — with integrated machine learning predictions.
+Scanalyzer is a web-based tool for 3D mesh inspection, simplification, and analysis. Upload meshes to analyze geometry features, curvature, thickness, and receive ML-powered simplification recommendations.
 
 ![Scanalyzer Demo](./assets/demo.gif)
 
@@ -8,23 +8,23 @@
 
 ## Features
 
-- 🔍 **3D Viewer** for interactive mesh inspection  
-- 📊 **Geometry Analysis**: surface area, volume, edge lengths, triangle quality  
-- 🌈 **Curvature & Thickness Estimation**  
-- 🧠 **ML-powered Simplification Suggestions**  
-- 🧹 **Low-poly mesh generation** (Mild, Medium, Aggressive)  
-- 🧪 **Example mesh support** for instant demo (.ply format)  
+- Interactive 3D mesh viewer
+- Geometry analysis: surface area, volume, edge lengths, triangle quality
+- Curvature and thickness estimation
+- ML-powered simplification level suggestions
+- Mesh decimation with Mild, Medium, and Aggressive options
+- Example meshes for quick testing
 
 ---
 
 ## Quickstart
 
 ```bash
-# Clone the repo
+# Clone the repository
 git clone https://github.com/josepeon/scanalyzer.git
 cd scanalyzer
 
-# Create virtual environment
+# Create and activate virtual environment
 python3 -m venv venv
 source venv/bin/activate
 
@@ -37,48 +37,57 @@ streamlit run streamlit_app.py
 
 ---
 
-## Folder Structure
+## Project Structure
 
 ```
 scanalyzer/
-├── analyzers/            # Mesh analysis logic
-├── data/                 # Collected logs and model files
-├── examples/             # Sample mesh files (e.g., bunny.ply)
-├── model/                # Trained ML models
-├── notebooks/            # Jupyter notebooks for ML training
-├── utils/                # Utility functions (e.g., file loading)
-├── streamlit_app.py      # Main app file
-└── README.md
+├── app.py                 # Command-line interface
+├── streamlit_app.py       # Web application (Streamlit)
+├── requirements.txt       # Python dependencies
+├── scanalyzer/            # Core library
+│   ├── __init__.py
+│   ├── analyzer.py        # Mesh analysis functions
+│   └── loader.py          # 3D model loading
+├── model/
+│   └── simplification_model.pkl
+├── data/
+│   └── simplification_logs.csv
+├── notebooks/
+│   └── train_model.ipynb  # ML model training
+├── examples/
+│   ├── bunny.ply
+│   └── armadillo.ply
+└── assets/
+    └── demo.gif
 ```
 
 ---
 
 ## ML Pipeline
 
-- Trains a classifier (e.g. Random Forest) using logged mesh features  
-- Predicts best simplification level  
-- Model retrainable via `notebooks/train_model.ipynb`  
-- Uses `data/simplification_logs.csv` for data logging
+The simplification suggester uses an XGBoost classifier trained on mesh features. To retrain:
+
+1. Run simplifications through the web app to generate training data in `data/simplification_logs.csv`
+2. Open `notebooks/train_model.ipynb`
+3. Run all cells to train and export a new model
 
 ---
 
-## Built With
+## Tech Stack
 
-- Streamlit  
-- Trimesh  
-- Open3D  
-- scikit-learn  
-- XGBoost
+- Streamlit - Web interface
+- Open3D - Mesh processing
+- Trimesh - Mesh export and utilities
+- XGBoost / scikit-learn - ML predictions
+- Plotly - 3D visualization
 
 ---
-
-[![Deploy](https://img.shields.io/badge/Live%20App-scanalyzer.onrender.com-green)](https://scanalyzer.onrender.com)
 
 ## License
 
 This project is licensed for personal and educational use only. Contact the author for other usage scenarios.
 
-## Credits
+---
 
-Built by [Jose Peon](https://github.com/josepeon)  
-© 2025 — All rights reserved.
+Built by Jose Peon
+https://github.com/josepeon

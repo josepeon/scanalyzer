@@ -1,13 +1,3 @@
-__pycache__/
-*.pyc
-*.tar.gz
-
-# Keep example meshes, but ignore test meshes
-test_files/*.ply
-test_files/*.obj
-test_files/*.stl
-
-.env
 # Python cache and compiled files
 __pycache__/
 *.pyc
@@ -17,27 +7,26 @@ __pycache__/
 # Compressed files
 *.tar.gz
 
-# Log and backup files
+# Log files and temporary files
 *.log
 *.tmp
 *.bak
+logs/
 
 # System files
 .DS_Store
 
 # IDE and editor folders
 .vscode/
+.idea/
 
-# Environments
+# Virtual environments
 venv/
 .env/
+.venv/
 
-# Model/data artifacts
-*.pkl
-data/*.csv
-!data/simplification_logs.csv
+# Generated files
+*.glb
 
-# Keep example meshes, ignore test meshes
-test_files/*.ply
-test_files/*.obj
-test_files/*.stl
+# Test files
+test_files/
