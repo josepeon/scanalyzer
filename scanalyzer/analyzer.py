@@ -1,130 +1,89 @@
 """Mesh geometry analysis functions."""
 
-import numpy as np
-import open3d as o3d
 import json
 import os
-import datetime
+from datetime import datetime
+from typing import Any, Dict, Optional
+
+import numpy as np
+import open3d as o3d
 
 
-def analyze_mesh(mesh):
+def analyze_mesh(mesh: o3d.geometry.TriangleMesh) -> Dict[str, Any]:
     """
     Analyze a 3D mesh and compute geometric properties.
-    
+
     Args:
         mesh: Open3D TriangleMesh object.
-        
+
     Returns:
-        Dictionary containing mesh analysis metrics.
+        Dictionary containing mesh analysis metrics including:
+        - vertices, triangles: mesh counts
+        - surface_area, volume: geometric measurements
+        - watertight: topology check
+        - curvature stats: min, average, max
+        - quality metrics: edge length, aspect ratio
     """
     mesh.compute_vertex_normals()
     mesh.compute_triangle_normals()
-    bbox = mesh.get_axis_aligned_bounding_box()
 
-    # Check watertight
+    triangles = np.asarray(mesh.triangles)
+    vertices = np.asarray(mesh.vertices)
+    num_vertices = len(vertices)
+    num_triangles = len(triangles)
+
+    # Basic properties
+    bbox = mesh.get_axis_aligned_bounding_box()
     is_watertight = mesh.is_watertight()
 
-    # Convex hull volume (always defined)
+    # Convex hull
     hull, _ = mesh.compute_convex_hull()
     convex_hull_volume = hull.get_volume()
 
-    # Get non-manifold edge count BEFORE overriding triangle array
-    non_manifold_edges = mesh.get_non_manifold_edges()
-    non_manifold_edge_count = len(non_manifold_edges)
+    # Non-manifold edges
+    non_manifold_edge_count = len(mesh.get_non_manifold_edges())
 
-    # Compute average edge length
-    triangles = np.asarray(mesh.triangles)
-    vertices = np.asarray(mesh.vertices)
+    # Vectorized edge and aspect ratio computation
+    v0, v1, v2 = vertices[triangles[:, 0]], vertices[triangles[:, 1]], vertices[triangles[:, 2]]
 
-    edge_lengths = []
-    for t in triangles:
-        v0, v1, v2 = vertices[t[0]], vertices[t[1]], vertices[t[2]]
-        edge_lengths.append(np.linalg.norm(v0 - v1))
-        edge_lengths.append(np.linalg.norm(v1 - v2))
-        edge_lengths.append(np.linalg.norm(v2 - v0))
+    a = np.linalg.norm(v0 - v1, axis=1)
+    b = np.linalg.norm(v1 - v2, axis=1)
+    c = np.linalg.norm(v2 - v0, axis=1)
 
-    average_edge_length = float(np.mean(edge_lengths))
+    average_edge_length = float(np.mean(np.concatenate([a, b, c])))
 
-    # Compute triangle aspect ratios
-    def triangle_aspect_ratio(v0, v1, v2):
-        a = np.linalg.norm(v0 - v1)
-        b = np.linalg.norm(v1 - v2)
-        c = np.linalg.norm(v2 - v0)
-        s = (a + b + c) / 2
-        area = max(np.sqrt(max(s * (s - a) * (s - b) * (s - c), 0)), 1e-12)
-        inradius = 2 * area / (a + b + c)
-        circumradius = (a * b * c) / (4 * area)
-        return circumradius / inradius
-
-    aspect_ratios = [
-        triangle_aspect_ratio(vertices[t[0]], vertices[t[1]], vertices[t[2]])
-        for t in triangles
-    ]
+    # Aspect ratio: circumradius / inradius
+    s = (a + b + c) / 2
+    area = np.sqrt(np.maximum(s * (s - a) * (s - b) * (s - c), 0))
+    area = np.maximum(area, 1e-12)
+    aspect_ratios = (a * b * c) / (8 * area * area / (a + b + c))
     average_aspect_ratio = float(np.mean(aspect_ratios))
 
-    # Estimate curvature using vertex neighbor distances (approximation)
-    curvatures = []
-    mesh.compute_adjacency_list()
+    # Curvature estimation via neighbor distances
+    curvature_stats = _compute_curvature(mesh, vertices)
 
-    if hasattr(mesh, 'adjacency_list') and mesh.adjacency_list is not None:
-        adj = mesh.adjacency_list
-
-        for vidx, neighbors in enumerate(adj):
-            v = vertices[vidx]
-            neighbor_pts = np.array([vertices[n] for n in neighbors])
-            if len(neighbor_pts) == 0:
-                continue
-            dists = np.linalg.norm(neighbor_pts - v, axis=1)
-            curvatures.append(np.mean(dists))
-
-        curvatures = np.array(curvatures)
-        average_curvature = float(np.mean(curvatures)) if len(curvatures) > 0 else 0.0
-        max_curvature = float(np.max(curvatures)) if len(curvatures) > 0 else 0.0
-        min_curvature = float(np.min(curvatures)) if len(curvatures) > 0 else 0.0
-    else:
-        average_curvature = max_curvature = min_curvature = 0.0
-
-    # Euler characteristic
-    V = len(np.asarray(mesh.vertices))
-    # Estimate E (number of unique edges) from triangle indices
-    edges_set = set()
-    for triangle in triangles:
-        i, j, k = triangle
-        edges_set.update({tuple(sorted((i, j))), tuple(sorted((j, k))), tuple(sorted((k, i)))})
-    E = len(edges_set)
-    F = len(np.asarray(mesh.triangles))
-    euler_characteristic = V - E + F
-
-    # Genus estimate
+    # Euler characteristic: V - E + F
+    edges = set()
+    for tri in triangles:
+        i, j, k = tri
+        edges.update({
+            (min(i, j), max(i, j)),
+            (min(j, k), max(j, k)),
+            (min(k, i), max(k, i))
+        })
+    euler_characteristic = num_vertices - len(edges) + num_triangles
     genus_estimate = (2 - euler_characteristic) // 2 if is_watertight else None
 
     # Connected components
-    triangle_clusters, cluster_n_triangles, cluster_area = mesh.cluster_connected_triangles()
-    connected_components = len(cluster_n_triangles)
+    _, cluster_counts, _ = mesh.cluster_connected_triangles()
+    connected_components = len(cluster_counts)
 
-    # Sharp edge count (approximate by angle between adjacent triangle normals)
-    triangle_normals = np.asarray(mesh.triangle_normals)
-    sharp_edge_count = 0
-    angle_threshold = np.deg2rad(30.0)
-
-    edge_to_triangles = {}
-    for tidx, tri in enumerate(triangles):
-        edges = [(tri[0], tri[1]), (tri[1], tri[2]), (tri[2], tri[0])]
-        for i, j in edges:
-            key = tuple(sorted((i, j)))
-            edge_to_triangles.setdefault(key, []).append(tidx)
-
-    for tri_ids in edge_to_triangles.values():
-        if len(tri_ids) == 2:
-            n1 = triangle_normals[tri_ids[0]]
-            n2 = triangle_normals[tri_ids[1]]
-            angle = np.arccos(np.clip(np.dot(n1, n2), -1.0, 1.0))
-            if angle > angle_threshold:
-                sharp_edge_count += 1
+    # Sharp edges
+    sharp_edge_count = _count_sharp_edges(mesh, triangles)
 
     return {
-        "vertices": len(np.asarray(mesh.vertices)),
-        "triangles": len(np.asarray(mesh.triangles)),
+        "vertices": num_vertices,
+        "triangles": num_triangles,
         "surface_area": mesh.get_surface_area(),
         "volume": mesh.get_volume() if is_watertight else None,
         "convex_hull_volume": convex_hull_volume,
@@ -136,9 +95,9 @@ def analyze_mesh(mesh):
         "average_edge_length": average_edge_length,
         "average_triangle_aspect_ratio": average_aspect_ratio,
         "non_manifold_edge_count": non_manifold_edge_count,
-        "average_curvature": average_curvature,
-        "max_curvature": max_curvature,
-        "min_curvature": min_curvature,
+        "min_curvature": curvature_stats["min"],
+        "average_curvature": curvature_stats["average"],
+        "max_curvature": curvature_stats["max"],
         "euler_characteristic": euler_characteristic,
         "genus_estimate": genus_estimate,
         "connected_components": connected_components,
@@ -146,19 +105,83 @@ def analyze_mesh(mesh):
     }
 
 
-def log_analysis_results(analysis, mesh_name="unnamed_mesh", simplification_level=None, log_dir="logs"):
+def _compute_curvature(
+    mesh: o3d.geometry.TriangleMesh, vertices: np.ndarray
+) -> Dict[str, float]:
+    """Estimate curvature via mean neighbor distance per vertex."""
+    mesh.compute_adjacency_list()
+
+    if not hasattr(mesh, "adjacency_list") or mesh.adjacency_list is None:
+        return {"min": 0.0, "average": 0.0, "max": 0.0}
+
+    curvatures = []
+    for vidx, neighbors in enumerate(mesh.adjacency_list):
+        if not neighbors:
+            continue
+        neighbor_pts = vertices[list(neighbors)]
+        dists = np.linalg.norm(neighbor_pts - vertices[vidx], axis=1)
+        curvatures.append(np.mean(dists))
+
+    if not curvatures:
+        return {"min": 0.0, "average": 0.0, "max": 0.0}
+
+    curvatures = np.array(curvatures)
+    return {
+        "min": float(np.min(curvatures)),
+        "average": float(np.mean(curvatures)),
+        "max": float(np.max(curvatures)),
+    }
+
+
+def _count_sharp_edges(
+    mesh: o3d.geometry.TriangleMesh,
+    triangles: np.ndarray,
+    angle_threshold_deg: float = 30.0,
+) -> int:
+    """Count edges where adjacent triangle normals differ by more than threshold."""
+    triangle_normals = np.asarray(mesh.triangle_normals)
+    angle_threshold = np.deg2rad(angle_threshold_deg)
+
+    # Build edge to triangle mapping
+    edge_to_tris: Dict[tuple, list] = {}
+    for tidx, tri in enumerate(triangles):
+        for i, j in [(0, 1), (1, 2), (2, 0)]:
+            key = (min(tri[i], tri[j]), max(tri[i], tri[j]))
+            edge_to_tris.setdefault(key, []).append(tidx)
+
+    sharp_count = 0
+    for tri_ids in edge_to_tris.values():
+        if len(tri_ids) == 2:
+            dot = np.clip(np.dot(triangle_normals[tri_ids[0]], triangle_normals[tri_ids[1]]), -1.0, 1.0)
+            if np.arccos(dot) > angle_threshold:
+                sharp_count += 1
+
+    return sharp_count
+
+
+def log_analysis_results(
+    analysis: Dict[str, Any],
+    mesh_name: str = "unnamed_mesh",
+    simplification_level: Optional[str] = None,
+    log_dir: str = "logs",
+) -> str:
     """
     Save analysis results to a JSON log file.
-    
+
     Args:
         analysis: Dictionary of analysis results.
         mesh_name: Name identifier for the mesh.
         simplification_level: Optional simplification level applied.
         log_dir: Directory to save log files.
+
+    Returns:
+        Path to the saved log file.
     """
     os.makedirs(log_dir, exist_ok=True)
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     filename = f"{mesh_name}_analysis_{timestamp}.json"
+    filepath = os.path.join(log_dir, filename)
 
     log_data = {
         "mesh_name": mesh_name,
@@ -167,5 +190,7 @@ def log_analysis_results(analysis, mesh_name="unnamed_mesh", simplification_leve
         "analysis": analysis,
     }
 
-    with open(os.path.join(log_dir, filename), "w") as f:
-        json.dump(log_data, f, indent=4)
+    with open(filepath, "w") as f:
+        json.dump(log_data, f, indent=2)
+
+    return filepath
