@@ -3,9 +3,15 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.egg-info/
+
+# Build artifacts
+dist/
+build/
 
 # Compressed files
 *.tar.gz
+*.whl
 
 # Log files and temporary files
 *.log
