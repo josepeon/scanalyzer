@@ -25,6 +25,9 @@ venv/
 .env/
 .venv/
 
+# Secrets
+.streamlit/secrets.toml
+
 # Generated files
 *.glb
 
