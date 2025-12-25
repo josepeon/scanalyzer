@@ -9,18 +9,23 @@ import numpy as np
 import open3d as o3d
 
 
-def analyze_mesh(mesh: o3d.geometry.TriangleMesh) -> Dict[str, Any]:
+def analyze_mesh(
+    mesh: o3d.geometry.TriangleMesh,
+    skip_watertight_threshold: int = 100000,
+) -> Dict[str, Any]:
     """
     Analyze a 3D mesh and compute geometric properties.
 
     Args:
         mesh: Open3D TriangleMesh object.
+        skip_watertight_threshold: Skip slow watertight check for meshes with
+            more triangles than this value (default: 100000).
 
     Returns:
         Dictionary containing mesh analysis metrics including:
         - vertices, triangles: mesh counts
         - surface_area, volume: geometric measurements
-        - watertight: topology check
+        - watertight: topology check (None if skipped)
         - curvature stats: min, average, max
         - quality metrics: edge length, aspect ratio
     """
@@ -34,7 +39,12 @@ def analyze_mesh(mesh: o3d.geometry.TriangleMesh) -> Dict[str, Any]:
 
     # Basic properties
     bbox = mesh.get_axis_aligned_bounding_box()
-    is_watertight = mesh.is_watertight()
+    
+    # Watertight check is very slow on large meshes (O(n^2) in Open3D)
+    if num_triangles > skip_watertight_threshold:
+        is_watertight = None  # Skip for performance
+    else:
+        is_watertight = mesh.is_watertight()
 
     # Convex hull
     hull, _ = mesh.compute_convex_hull()
@@ -81,11 +91,16 @@ def analyze_mesh(mesh: o3d.geometry.TriangleMesh) -> Dict[str, Any]:
     # Sharp edges
     sharp_edge_count = _count_sharp_edges(mesh, triangles)
 
+    # Volume only available for watertight meshes
+    volume = None
+    if is_watertight is True:
+        volume = mesh.get_volume()
+
     return {
         "vertices": num_vertices,
         "triangles": num_triangles,
         "surface_area": mesh.get_surface_area(),
-        "volume": mesh.get_volume() if is_watertight else None,
+        "volume": volume,
         "convex_hull_volume": convex_hull_volume,
         "watertight": is_watertight,
         "bounding_box": {
