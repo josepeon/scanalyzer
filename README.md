@@ -1,5 +1,9 @@
 # Scanalyzer
 
+[![PyPI version](https://badge.fury.io/py/scanalyzer.svg)](https://badge.fury.io/py/scanalyzer)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Scanalyzer is a web-based tool for 3D mesh inspection, simplification, and analysis. Upload meshes to analyze geometry features, curvature, thickness, and receive ML-powered simplification recommendations.
 
 ![Scanalyzer Demo](./assets/demo.gif)
@@ -73,6 +77,69 @@ The simplification suggester uses an XGBoost classifier trained on mesh features
 
 ---
 
+## Installation
+
+### From PyPI (when published)
+
+```bash
+pip install scanalyzer
+
+# With web UI support
+pip install scanalyzer[web]
+
+# With development tools
+pip install scanalyzer[all]
+```
+
+### From source
+
+```bash
+git clone https://github.com/josepeon/scanalyzer.git
+cd scanalyzer
+pip install -e ".[all]"
+```
+
+---
+
+## Deployment
+
+### 🐳 Docker
+
+```bash
+# Build image
+docker build -t scanalyzer .
+
+# Run container
+docker run -p 8501:8501 scanalyzer
+
+# Open http://localhost:8501
+```
+
+### ☁️ Streamlit Cloud
+
+1. Fork this repository
+2. Go to [share.streamlit.io](https://share.streamlit.io)
+3. Connect your GitHub account
+4. Deploy from your fork
+5. Set main file path to `streamlit_app.py`
+
+### 🚀 Railway / Render / Fly.io
+
+Use the included `Dockerfile` for one-click deployment:
+
+```bash
+# Railway
+railway up
+
+# Render - connect repo, select Docker environment
+
+# Fly.io
+fly launch
+fly deploy
+```
+
+---
+
 ## Tech Stack
 
 - Streamlit - Web interface
@@ -85,7 +152,7 @@ The simplification suggester uses an XGBoost classifier trained on mesh features
 
 ## License
 
-This project is licensed for personal and educational use only. Contact the author for other usage scenarios.
+MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 

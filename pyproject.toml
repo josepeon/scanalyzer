@@ -1,0 +1,107 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "scanalyzer"
+version = "1.0.0"
+description = "3D mesh analysis and simplification toolkit with ML-powered recommendations"
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "Jose Peon", email = "josepeon@example.com" }
+]
+keywords = [
+    "3d",
+    "mesh",
+    "analysis",
+    "simplification",
+    "open3d",
+    "geometry",
+    "machine-learning",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Multimedia :: Graphics :: 3D Modeling",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=2.0.0",
+    "open3d>=0.18.0",
+    "pandas>=2.0.0",
+    "plotly>=5.0.0",
+    "trimesh>=4.0.0",
+    "scikit-learn>=1.5.0",
+    "xgboost>=2.0.0",
+    "joblib>=1.4.0",
+]
+
+[project.optional-dependencies]
+web = [
+    "streamlit>=1.40.0",
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+]
+all = [
+    "scanalyzer[web,dev]",
+]
+
+[project.scripts]
+scanalyzer = "scanalyzer.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/josepeon/scanalyzer"
+Repository = "https://github.com/josepeon/scanalyzer"
+Documentation = "https://github.com/josepeon/scanalyzer#readme"
+Issues = "https://github.com/josepeon/scanalyzer/issues"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/scanalyzer",
+    "/model",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["scanalyzer"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "-v --cov=scanalyzer --cov-report=term-missing"

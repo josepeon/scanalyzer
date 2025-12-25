@@ -1,0 +1,5 @@
+# Streamlit Cloud packages configuration
+# Required for Open3D to work on Linux servers
+
+libgl1-mesa-glx
+libglib2.0-0

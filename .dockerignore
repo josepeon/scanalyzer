@@ -1,0 +1,67 @@
+# =============================================================================
+# Docker ignore file - exclude unnecessary files from build context
+# =============================================================================
+
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Virtual environments
+.conda
+*.egg-info
+dist/
+build/
+eggs/
+*.egg
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints
+notebooks/
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov/
+.tox
+.nox
+
+# Logs and temp files
+logs/
+*.log
+tmp/
+temp/
+*.tmp
+
+# Documentation
+docs/_build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Large example files (keep only essential ones)
+test_files/
+
+# Development files
+*.md
+!README.md
+Makefile
