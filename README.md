@@ -1,8 +1,10 @@
 # Scanalyzer
 
-[![PyPI version](https://badge.fury.io/py/scanalyzer.svg)](https://badge.fury.io/py/scanalyzer)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://scanalyzer.streamlit.app)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+**🚀 [Try it live → scanalyzer.streamlit.app](https://scanalyzer.streamlit.app)**
 
 Scanalyzer is a web-based tool for 3D mesh inspection, simplification, and analysis. Upload meshes to analyze geometry features, curvature, thickness, and receive ML-powered simplification recommendations.
 
